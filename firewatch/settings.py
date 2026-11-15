@@ -27,11 +27,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY")
+SECRET_KEY = config("SECRET_KEY", default="firewatch-railway-a-remplacer")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
+ALLOWED_HOSTS = list(config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()))
+for _hote in (".railway.app", ".up.railway.app"):
+    if _hote not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_hote)
 
 # Application definition
 
@@ -86,7 +89,8 @@ WSGI_APPLICATION = "firewatch.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DB_ENGINE = config("DB_ENGINE", default="mysql")
+# Sans variables de base (Railway, avant le branchement), une base vide suffit pour démarrer.
+DB_ENGINE = config("DB_ENGINE", default="sqlite")
 if DB_ENGINE == "sqlite":
     DATABASES = {
         "default": {
@@ -153,7 +157,7 @@ MAILERS = {
 # CORS
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://127.0.0.1:5173,http://localhost:5173",
+    default="http://127.0.0.1:5173,http://localhost:5173,https://black-start-delta.vercel.app",
     cast=Csv(),
 )
 CORS_ALLOW_CREDENTIALS = True
@@ -165,10 +169,19 @@ CSRF_TRUSTED_ORIGINS = [
     *config("CSRF_ORIGINES_LAN", default="", cast=Csv()),
 ]
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+# Le site Vercel et Django ne sont pas sur le même domaine : le navigateur
+# n'envoie les cookies de connexion que s'ils sont Secure et SameSite=None.
+# En local (http), on garde Lax.
+if DEBUG:
+    CSRF_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+else:
+    CSRF_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
 # DRF
 REST_FRAMEWORK = {
