@@ -1,0 +1,10 @@
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/", include("utilisateurs.urls")),
+    path("api/", include("detections.urls")),
+    path("api/", include("calendrier.urls")),
+    path("api/", include("agent.urls")),
+]

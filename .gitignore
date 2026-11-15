@@ -1,0 +1,11 @@
+.venv
+venv
+.env
+db.sqlite3
+data/firms/
+data/voix/
+data/piper/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
