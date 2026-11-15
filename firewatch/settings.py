@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from urllib.parse import unquote, urlparse
+
 from decouple import config, Csv
 from pathlib import Path
 
@@ -89,9 +91,47 @@ WSGI_APPLICATION = "firewatch.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-# Sans variables de base (Railway, avant le branchement), une base vide suffit pour démarrer.
-DB_ENGINE = config("DB_ENGINE", default="sqlite")
-if DB_ENGINE == "sqlite":
+def _mysql(name, user, password, host, port):
+    return {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": name,
+        "USER": user,
+        "PASSWORD": password,
+        "HOST": host,
+        "PORT": str(port or "3306"),
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
+        },
+    }
+
+
+def _mysql_depuis_url(url):
+    lien = urlparse(url)
+    return _mysql(
+        lien.path.lstrip("/") or "railway",
+        unquote(lien.username or "root"),
+        unquote(lien.password or ""),
+        lien.hostname or "",
+        lien.port or 3306,
+    )
+
+
+# Railway : coller le lien MySQL dans DATABASE_URL, ou les variables MYSQL*.
+# Sans rien de tout ça, une base vide locale suffit pour démarrer.
+_lien_mysql = config("DATABASE_URL", default="") or config("MYSQL_PUBLIC_URL", default="") or config("MYSQL_URL", default="")
+_hote_mysql = config("MYSQLHOST", default="")
+if _lien_mysql.startswith("mysql"):
+    DATABASES = {"default": _mysql_depuis_url(_lien_mysql)}
+elif _hote_mysql:
+    DATABASES = {"default": _mysql(
+        config("MYSQLDATABASE", default="railway"),
+        config("MYSQLUSER", default="root"),
+        config("MYSQLPASSWORD", default=""),
+        _hote_mysql,
+        config("MYSQLPORT", default="3306"),
+    )}
+elif config("DB_ENGINE", default="sqlite") == "sqlite":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -99,20 +139,13 @@ if DB_ENGINE == "sqlite":
         }
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": config("DB_NAME"),
-            "USER": config("DB_USER"),
-            "PASSWORD": config("DB_PASSWORD", default=""),
-            "HOST": config("DB_HOST", default="localhost"),
-            "PORT": config("DB_PORT", default="3306"),
-            "OPTIONS": {
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-                "charset": "utf8mb4",
-            },
-        }
-    }
+    DATABASES = {"default": _mysql(
+        config("DB_NAME"),
+        config("DB_USER"),
+        config("DB_PASSWORD", default=""),
+        config("DB_HOST", default="localhost"),
+        config("DB_PORT", default="3306"),
+    )}
 
 
 # Password validation
